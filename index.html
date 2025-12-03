@@ -154,6 +154,16 @@
       60% { text-shadow: .25em 0 0 #666, .5em 0 0 rgba(0,0,0,0); }
       80%, 100% { text-shadow: .25em 0 0 #666, .5em 0 0 #666; }
     }
+    /* 省份和观测点样式 */
+    .province {
+      transition: fill-opacity 0.3s ease;
+    }
+    .province:hover {
+      fill-opacity: 0.9;
+    }
+    .observation-point {
+      transition: opacity 0.2s ease;
+    }
   </style>
 </head>
 <body>
@@ -205,15 +215,17 @@
     const TOOLTIP = d3.select('#tooltip');
     let ALL_DATA = [];
     
-    // 省份名称映射
+    // 英文→中文省份映射
     const PROVINCE_MAP = {
       'Fujian': '福建', 'Jiangsu': '江苏', 'Tianjin': '天津', 'Hubei': '湖北', 'Yunnan': '云南', 
       'Hebei': '河北', 'Guangdong': '广东', 'Sichuan': '四川', 'Zhejiang': '浙江', 'Shandong': '山东', 
-      'Henan': '河南', 'Shanxi': '山西', 'Shanxi1': '陕西', 'Gansu': '甘肃', 'Qinghai': '青海', 
+      'Henan': '河南', 'Shanxi': '山西', 'Shaanxi': '陕西', 'Gansu': '甘肃', 'Qinghai': '青海', 
       'Xinjiang': '新疆', 'Tibet': '西藏', 'Inner Mongolia': '内蒙古', 'Ningxia': '宁夏', 'Guangxi': '广西', 
       'Guizhou': '贵州', 'Hunan': '湖南', 'Jiangxi': '江西', 'Anhui': '安徽', 'Shanghai': '上海', 
       'Beijing': '北京', 'Chongqing': '重庆', 'Hainan': '海南', 'Hong Kong': '香港', 'Macao': '澳门', 'Taiwan': '台湾',
-      'Liaoning': '辽宁', 'Jilin': '吉林', 'Heilongjiang': '黑龙江'
+      'Liaoning': '辽宁', 'Jilin': '吉林', 'Heilongjiang': '黑龙江',
+      'Nei Mongol': '内蒙古', 'Xizang': '西藏', 'Guangxi Zhuang': '广西', 'Ningxia Hui': '宁夏',
+      'Hongkong': '香港', 'Macau': '澳门', 'Sichuang': '四川', 'Guangdung': '广东'
     };
 
     // 数据加载配置
@@ -322,22 +334,18 @@
     // 数据预处理逻辑
     function processRawData(rawData) {
       if (!Array.isArray(rawData)) {
-        // 如果是测试环境，生成模拟数据
-        console.warn('观测数据不是数组格式，生成模拟数据');
+        console.warn('观测数据不是数组格式，生成模拟数据（英文省份名）');
         return generateMockData();
       }
 
-      // 宽松过滤：只排除明显无效的数据
       return rawData
         .filter(d => {
           if (d === null || typeof d !== 'object') return false;
 
-          // 转换为数字
           const year = Number(d.year);
           const month = Number(d.month);
           const count = Number(d.individualCount);
 
-          // 核心过滤：只排除完全无效的值
           return !isNaN(year) && !isNaN(month) && !isNaN(count) &&
                  year >= 2015 && year <= 2025 &&
                  month >= 1 && month <= 12 &&
@@ -347,6 +355,11 @@
           const lat = Number(d.decimalLatitude);
           const lon = Number(d.decimalLongitude);
           
+          let provinceCn = '未知省份';
+          if (d.stateProvince) {
+            provinceCn = PROVINCE_MAP[d.stateProvince] || d.stateProvince || '未知省份';
+          }
+          
           return {
             ...d,
             individualCount: Math.max(0, Math.floor(Number(d.individualCount))),
@@ -354,7 +367,8 @@
             month: Math.floor(Number(d.month)),
             decimalLatitude: !isNaN(lat) ? lat : null,
             decimalLongitude: !isNaN(lon) ? lon : null,
-            provinceCn: PROVINCE_MAP[d.stateProvince] || d.stateProvince || '未知省份',
+            provinceCn: provinceCn,
+            provinceEng: d.stateProvince || 'Unknown',
             locality: d.locality || '未知地点',
             eventDate: d.eventDate || `${d.year}年${d.month}月`,
             habitat: classifyHabitat(d.locality)
@@ -362,29 +376,29 @@
         });
     }
 
-    // 生成模拟数据（用于测试）
+    // 生成模拟数据
     function generateMockData() {
       const habitats = ['校园', '湿地/水域', '乡镇居民区', '村庄居民区', '农田/围垦区', '公园/景区', '山地/森林', '其他'];
-      const provinces = Object.values(PROVINCE_MAP);
+      const provinceEngList = Object.keys(PROVINCE_MAP);
       
       const data = [];
       for (let year = 2015; year <= 2025; year++) {
         for (let month = 1; month <= 12; month++) {
-          // 每月生成1-5条记录
           const recordsCount = Math.floor(Math.random() * 5) + 1;
           
           for (let i = 0; i < recordsCount; i++) {
-            const province = provinces[Math.floor(Math.random() * provinces.length)];
+            const provinceEng = provinceEngList[Math.floor(Math.random() * provinceEngList.length)];
+            const provinceCn = PROVINCE_MAP[provinceEng];
             const habitat = habitats[Math.floor(Math.random() * habitats.length)];
             
             data.push({
               year: year,
               month: month,
               individualCount: Math.floor(Math.random() * 20) + 1,
-              decimalLatitude: 20 + Math.random() * 30, // 中国纬度范围
-              decimalLongitude: 80 + Math.random() * 50, // 中国经度范围
-              stateProvince: province,
-              locality: `${province}某${habitat}`,
+              decimalLatitude: 20 + Math.random() * 30,
+              decimalLongitude: 80 + Math.random() * 50,
+              stateProvince: provinceEng,
+              locality: `${provinceCn}某${habitat}`,
               habitat: habitat
             });
           }
@@ -452,7 +466,6 @@
       const yearInnerWidth = yearWidth - yearMargin.left - yearMargin.right;
       const yearInnerHeight = yearHeight - yearMargin.top - yearMargin.bottom;
 
-      // 清除之前的内容
       yearSvg.selectAll("*").remove();
 
       const xYear = d3.scaleLinear().domain([2015, 2025]).range([0, yearInnerWidth]);
@@ -465,7 +478,6 @@
 
       const yearG = yearSvg.append('g').attr('transform', `translate(${yearMargin.left}, ${yearMargin.top})`);
 
-      // 绘制折线
       if (yearAgg.length > 0) {
         yearG.append('path')
           .attr('d', lineGenerator(yearAgg))
@@ -492,7 +504,6 @@
           .text('无年度观测数据');
       }
 
-      // 坐标轴
       yearG.append('g')
         .attr('transform', `translate(0, ${yearInnerHeight})`)
         .attr('class', 'axis')
@@ -517,10 +528,8 @@
       const monthInnerWidth = monthWidth - monthMargin.left - monthMargin.right;
       const monthInnerHeight = monthHeight - monthMargin.top - monthMargin.bottom;
 
-      // 清除之前的内容
       monthSvg.selectAll("*").remove();
 
-      // 颜色比例尺
       const colorScale = d3.scaleSequential()
         .domain([0, maxMonthCount])
         .interpolator(d3.interpolateYlOrRd);
@@ -557,7 +566,6 @@
         })
         .on('mouseout', hideTooltip);
 
-      // 热力图坐标轴
       monthG.append('g')
         .attr('transform', `translate(0, ${monthInnerHeight})`)
         .attr('class', 'axis')
@@ -589,24 +597,29 @@
         .text('月度斑鸠观测数量热力图');
     }
 
-    // 空间分布图绘制
+    // 空间分布图绘制 - 完全修复版本
     function drawMapChart(mapRaw) {
       const mapSvg = d3.select('#map-chart');
       const mapWidth = mapSvg.node().clientWidth;
       const mapHeight = mapSvg.node().clientHeight;
 
-      // 清除之前的内容
       mapSvg.selectAll("*").remove();
 
-      // 1. 聚合省份数据
-      const provinceGroups = d3.group(ALL_DATA, d => d.provinceCn);
+      // 1. 聚合省份数据（使用英文省份名聚合）
+      const provinceGroups = d3.group(ALL_DATA, d => d.stateProvince);
       const provinceAgg = Array.from(provinceGroups.entries())
-        .map(([province, items]) => ({
-          province,
-          count: items.length,
-          totalIndividuals: d3.sum(items, d => d.individualCount),
-          avgIndividuals: items.length > 0 ? (d3.sum(items, d => d.individualCount) / items.length).toFixed(1) : '0.0'
-        }));
+        .map(([provinceEng, items]) => {
+          const provinceCn = PROVINCE_MAP[provinceEng] || provinceEng;
+          return {
+            province: provinceCn,
+            provinceEng: provinceEng,
+            count: items.length,
+            totalIndividuals: d3.sum(items, d => d.individualCount),
+            avgIndividuals: items.length > 0 ? (d3.sum(items, d => d.individualCount) / items.length).toFixed(1) : '0.0'
+          };
+        });
+
+      console.log('省份数据聚合结果（英文→中文）：', provinceAgg);
 
       const maxIndividuals = provinceAgg.length > 0 
         ? Math.max(...provinceAgg.map(d => d.totalIndividuals), 1) 
@@ -639,71 +652,269 @@
         throw new Error('未解析到省份数据');
       }
 
-      // 4. 绘制地图
+      // 4. 省份名称获取函数
+      function getProvinceName(feature) {
+        const nameProps = ['name', 'n', 'province', 'NAME', 'Name', '省名', 'cnname', 'label'];
+        let provinceName = '未知';
+        
+        for (const prop of nameProps) {
+          if (feature.properties && feature.properties[prop]) {
+            provinceName = feature.properties[prop];
+            break;
+          }
+        }
+        
+        return provinceName;
+      }
+
+      // 5. 省份匹配函数
+      function matchProvinceData(provinceName) {
+        // 1. 直接匹配
+        for (const item of provinceAgg) {
+          if (item.province === provinceName) {
+            return item;
+          }
+        }
+        
+        // 2. 去除后缀后匹配
+        const cleanName = provinceName.replace(/省|市|自治区|壮族|维吾尔|回族|蒙古族|藏族|特别行政区/g, '');
+        for (const item of provinceAgg) {
+          if (item.province === cleanName || item.province.includes(cleanName) || cleanName.includes(item.province)) {
+            return item;
+          }
+        }
+        
+        // 3. 部分匹配
+        for (const item of provinceAgg) {
+          if (provinceName.includes(item.province) || item.province.includes(provinceName)) {
+            return item;
+          }
+        }
+        
+        console.warn(`未找到省份"${provinceName}"的匹配数据`);
+        return null;
+      }
+
+      // 6. 分析省份边界，检测异常区域
+      function analyzeProvinceBounds(provinces) {
+  const bounds = {};
+  
+  provinces.forEach(province => {
+    const name = getProvinceName(province);
+    const area = path.area(province);
+    
+    if (!bounds[name]) {
+      bounds[name] = { count: 0, totalArea: 0, maxArea: 0, features: [] };
+    }
+    
+    bounds[name].count++;
+    bounds[name].totalArea += area;
+    bounds[name].maxArea = Math.max(bounds[name].maxArea, area);
+    bounds[name].features.push(province);
+  });
+  
+  return bounds;
+}
+
+const provinceBounds = analyzeProvinceBounds(provinces);
+
+// 7. 分离有数据和无数据的省份，并过滤异常区域 - 修复版本
+const provincesWithData = [];
+const provincesWithoutData = [];
+
+// 计算合理的面积阈值（基于正常省份面积）
+const allAreas = provinces.map(province => path.area(province)).filter(area => area > 0);
+const sortedAreas = allAreas.sort((a, b) => a - b);
+// 使用中位数作为参考，过滤掉异常大的区域
+const medianArea = sortedAreas[Math.floor(sortedAreas.length / 2)];
+const areaThreshold = medianArea * 100; // 阈值设为中位数的10倍
+
+console.log('面积统计:', {
+  min: Math.min(...allAreas),
+  max: Math.max(...allAreas),
+  median: medianArea,
+  threshold: areaThreshold
+});
+
+provinces.forEach(province => {
+  const provinceName = getProvinceName(province);
+  const provinceData = matchProvinceData(provinceName);
+  const area = path.area(province);
+  
+  // 改进的过滤逻辑：基于相对面积而非绝对数值
+  if (area > areaThreshold) {
+    console.warn(`过滤掉异常大区域: ${provinceName} (面积: ${area.toFixed(0)}, 阈值: ${areaThreshold.toFixed(0)})`);
+    return;
+  }
+  
+  if (provinceData && provinceData.totalIndividuals > 0) {
+    provincesWithData.push(province);
+  } else {
+    provincesWithoutData.push(province);
+  }
+});
+
+// 8. 处理被过滤掉的省份：尝试找到它们的正常版本
+Object.entries(provinceBounds).forEach(([provinceName, info]) => {
+  // 如果这个省份的所有特征都被过滤掉了
+  const hasValidFeature = info.features.some(feature => {
+    const area = path.area(feature);
+    return area <= areaThreshold;
+  });
+  
+  if (!hasValidFeature && info.features.length > 0) {
+    // 尝试选择面积最小的特征作为代表
+    const validFeatures = info.features.filter(feature => path.area(feature) > 0);
+    if (validFeatures.length > 0) {
+      const smallestFeature = validFeatures.reduce((min, feature) => 
+        path.area(feature) < path.area(min) ? feature : min
+      );
+      
+      const provinceData = matchProvinceData(provinceName);
+      const area = path.area(smallestFeature);
+      
+      if (area <= areaThreshold) {
+        console.log(`恢复省份 ${provinceName} 的正常区域 (面积: ${area.toFixed(0)})`);
+        
+        if (provinceData && provinceData.totalIndividuals > 0) {
+          provincesWithData.push(smallestFeature);
+        } else {
+          provincesWithoutData.push(smallestFeature);
+        }
+      }
+    }
+  }
+});
+
+      
+
+      console.log(`有数据省份: ${provincesWithData.length}, 无数据省份: ${provincesWithoutData.length}`);
+
+      // 8. 创建颜色比例尺
+      const colorScale = d3.scaleSequential()
+        .domain([0, maxIndividuals])
+        .interpolator(d3.interpolateBlues);
+
+      // 9. 绘制地图容器
       const mapG = mapSvg.append('g');
 
-      // 绘制省份底色
-      mapG.selectAll('path')
-        .data(provinces)
+      // 10. 先绘制无数据的省份（底层）
+      const pathsWithoutData = mapG.selectAll('path.province-no-data')
+        .data(provincesWithoutData)
         .enter()
         .append('path')
-        .attr('d', d => {
-          try { return path(d); } 
-          catch (e) { return ''; }
-        })
-        .attr('fill', d => {
-          const provinceName = d.properties.name || '';
-          const match = provinceAgg.find(p => 
-            p.province.includes(provinceName) || provinceName.includes(p.province)
-          );
-          return match && match.totalIndividuals > 0
-            ? d3.scaleSequential()
-                .domain([0, maxIndividuals])
-                .interpolator(d3.interpolateBlues)(match.totalIndividuals)
-            : '#E8F4FD';
-        })
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 1.5)
-        .on('mouseover', (e, d) => {
-          const provinceName = d.properties.name || '未知省份';
-          const match = provinceAgg.find(p => 
-            p.province.includes(provinceName) || provinceName.includes(p.province)
-          ) || { count: 0, totalIndividuals: 0, avgIndividuals: '0.0' };
-          showTooltip(e, `省份：${provinceName}<br>观测次数：${match.count}次<br>总个体数：${match.totalIndividuals}只`);
-        })
-        .on('mouseout', hideTooltip);
+        .attr('class', 'province province-no-data')
+        .attr('d', path)
+        .attr('fill', '#f0f0f0')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 0.5)
+        .attr('fill-opacity', 0.6)
+        .style('pointer-events', 'all');
 
-      // 绘制观测点
+      // 11. 再绘制有数据的省份（顶层）
+      const pathsWithData = mapG.selectAll('path.province-with-data')
+        .data(provincesWithData)
+        .enter()
+        .append('path')
+        .attr('class', 'province province-with-data')
+        .attr('d', path)
+        .attr('fill', d => {
+          const provinceName = getProvinceName(d);
+          const provinceData = matchProvinceData(provinceName);
+          return colorScale(provinceData.totalIndividuals);
+        })
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1)
+        .attr('fill-opacity', 0.8)
+        .style('pointer-events', 'all');
+
+      // 12. 绑定事件处理函数
+      function bindProvinceEvents(selection, hasData = true) {
+        selection
+          .on('mouseover', function(e, d) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const provinceName = getProvinceName(d);
+            const provinceData = matchProvinceData(provinceName);
+            
+            console.log(`✅ HOVER: ${provinceName} (有数据: ${hasData})`);
+            
+            let content;
+            if (provinceData && provinceData.totalIndividuals > 0) {
+              content = `省份：${provinceData.province}
+总观测个体数：${provinceData.totalIndividuals}只
+观测次数：${provinceData.count}次
+平均每次：${provinceData.avgIndividuals}只`;
+            } else {
+              content = `省份：${provinceName}
+暂无观测数据`;
+            }
+            
+            showTooltip(e, content);
+            d3.select(this).attr('fill-opacity', 0.95);
+          })
+          .on('mouseout', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            hideTooltip();
+            d3.select(this).attr('fill-opacity', hasData ? 0.8 : 0.6);
+          })
+          .on('click', function(e, d) {
+            e.stopPropagation();
+            e.preventDefault();
+            const provinceName = getProvinceName(d);
+            console.log(`点击省份: ${provinceName}`);
+          });
+      }
+
+      // 绑定事件
+      bindProvinceEvents(pathsWithData, true);
+      bindProvinceEvents(pathsWithoutData, false);
+
+      // 13. 绘制观测点
       const validPoints = ALL_DATA.filter(d => {
         if (!d.decimalLatitude || !d.decimalLongitude) return false;
         const [x, y] = projection([d.decimalLongitude, d.decimalLatitude]);
         return !isNaN(x) && !isNaN(y) && x >= 0 && x <= mapWidth && y >=0 && y <= mapHeight;
       });
 
-      mapG.selectAll('circle')
+      const observationPoints = mapG.selectAll('circle.observation-point')
         .data(validPoints)
         .enter()
         .append('circle')
+        .attr('class', 'observation-point')
         .attr('cx', d => projection([d.decimalLongitude, d.decimalLatitude])[0])
         .attr('cy', d => projection([d.decimalLongitude, d.decimalLatitude])[1])
         .attr('r', d => Math.max(2, Math.sqrt(d.individualCount) * 1.2))
         .attr('fill', '#FF6B6B')
-        .attr('opacity', 0.7)
+        .attr('opacity', 0.7);
+
+      observationPoints.each(function() {
+        const point = d3.select(this);
+        const originalR = point.attr('r');
+        point.datum().originalR = originalR;
+      });
+
+      observationPoints
         .on('mouseover', (e, d) => {
-          showTooltip(e, `地点：${d.locality}<br>时间：${d.eventDate}<br>数量：${d.individualCount}只`);
+          showTooltip(e, `地点：${d.locality}
+时间：${d.eventDate}
+数量：${d.individualCount}只
+省份：${d.provinceCn}`);
+          d3.select(e.currentTarget)
+            .attr('opacity', 0.9)
+            .attr('r', parseFloat(d.originalR) + 1);
         })
-        .on('mouseout', hideTooltip);
+        .on('mouseout', (e, d) => {
+          hideTooltip();
+          d3.select(e.currentTarget)
+            .attr('opacity', 0.7)
+            .attr('r', d.originalR);
+        });
 
-      // 地图图例
-      const legendG = mapSvg.append('g')
-        .attr('transform', `translate(${mapWidth - 60}, ${(mapHeight - 250) / 2})`);
-
-      legendG.append('rect')
-        .attr('width', 20)
-        .attr('height', 250)
-        .attr('fill', 'url(#color-gradient)');
-
-      // 添加渐变定义
+      // 14. 绘制图例
       const defs = mapSvg.append('defs');
       const gradient = defs.append('linearGradient')
         .attr('id', 'color-gradient')
@@ -717,22 +928,44 @@
         .enter()
         .append('stop')
         .attr('offset', d => `${d * 100}%`)
-        .attr('stop-color', d => d3.scaleSequential()
-          .domain([0, maxIndividuals])
-          .interpolator(d3.interpolateBlues)(d * maxIndividuals));
+        .attr('stop-color', d => colorScale(d * maxIndividuals));
+
+      const legendG = mapSvg.append('g')
+        .attr('transform', `translate(${mapWidth - 60}, ${(mapHeight - 250) / 2})`);
+
+      legendG.append('rect')
+        .attr('width', 20)
+        .attr('height', 250)
+        .attr('fill', 'url(#color-gradient)')
+        .attr('stroke', '#ddd')
+        .attr('stroke-width', 0.5);
 
       legendG.append('g')
         .attr('transform', `translate(30, 0)`)
+        .attr('class', 'axis')
         .call(d3.axisRight(d3.scaleLinear()
           .domain([0, maxIndividuals])
           .range([250, 0]))
           .tickFormat(d => d + '只')
           .ticks(5));
+
+      legendG.append('text')
+        .attr('x', 10)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#333')
+        .attr('font-size', 12)
+        .text('省份总观测数');
+
+      // 15. 添加调试信息
+      console.log('=== 地图绘制完成 ===');
+      console.log(`有数据省份数量: ${provincesWithData.length}`);
+      console.log(`无数据省份数量: ${provincesWithoutData.length}`);
+      console.log(`观测点数量: ${validPoints.length}`);
     }
 
     // 栖息地类型分析
     function drawHabitatCharts() {
-      // 数据聚合
       const habitatAggMap = d3.rollup(
         ALL_DATA,
         v => ({
@@ -761,7 +994,6 @@
       const barInnerWidth = barWidth - barMargin.left - barMargin.right;
       const barInnerHeight = barHeight - barMargin.top - barMargin.bottom;
 
-      // 清除之前的内容
       barSvg.selectAll("*").remove();
 
       const xBar = d3.scaleLinear()
@@ -820,7 +1052,6 @@
       const pieSize = Math.min(pieSvg.node().clientWidth, pieSvg.node().clientHeight) - 80;
       const pieRadius = pieSize / 2;
 
-      // 清除之前的内容
       pieSvg.selectAll("*").remove();
 
       const pieG = pieSvg.append('g')
