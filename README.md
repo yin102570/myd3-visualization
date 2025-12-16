@@ -91,12 +91,12 @@ function showTooltip(event, content) {
 
 1. 克隆本仓库
    ```bash
-   git clone https://github.com/yourusername/woodpigeon-visualization.git
+   git clone https://github.com/yourusername/myd3-visualization.git
    ```
 
 2. 进入项目目录
    ```bash
-   cd woodpigeon-visualization
+   cd myd3-visualization
    ```
 
 3. 启动本地服务器（推荐使用VS Code Live Server或类似工具）
