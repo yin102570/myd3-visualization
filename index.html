@@ -1097,12 +1097,6 @@ Object.entries(provinceBounds).forEach(([provinceName, info]) => {
         .attr('transform', (_, i) => {
           const row = Math.floor(i / legendPerRow);
           const col = i % legendPerRow;
-          const x = (col - legendPerRow / 2) * 120;
-          const y = row * 25;
-          return `translate(${x}, ${y})`;
-        });
-
-      legendItems.append('rect')
         .attr('width', 12)
         .attr('height', 12)
         .attr('fill', d => pieColor(d[0]))
